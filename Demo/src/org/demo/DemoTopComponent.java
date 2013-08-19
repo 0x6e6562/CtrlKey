@@ -5,11 +5,13 @@
 package org.demo;
 
 import java.awt.Point;
-import java.awt.event.KeyListener;
 import org.netbeans.api.settings.ConvertAsProperties;
 import org.netbeans.api.visual.action.ActionFactory;
 import org.netbeans.api.visual.action.ConnectProvider;
 import org.netbeans.api.visual.action.ConnectorState;
+import org.netbeans.api.visual.action.SelectProvider;
+import org.netbeans.api.visual.action.WidgetAction;
+import org.netbeans.api.visual.widget.EventProcessingType;
 import org.netbeans.api.visual.widget.LabelWidget;
 import org.netbeans.api.visual.widget.LayerWidget;
 import org.netbeans.api.visual.widget.Scene;
@@ -42,12 +44,14 @@ import org.openide.util.NbBundle.Messages;
 })
 public final class DemoTopComponent extends TopComponent {
 
+    private Scene scene;
+    
     public DemoTopComponent() {
         initComponents();
         setName(Bundle.CTL_DemoTopComponent());
         setToolTipText(Bundle.HINT_DemoTopComponent());
         
-        Scene scene = new Scene ();
+        scene = new Scene ();
         LayerWidget layer = new LayerWidget (scene);
         scene.addChild (layer);
 
@@ -58,8 +62,23 @@ public final class DemoTopComponent extends TopComponent {
 
         LayerWidget interractionLayer = new LayerWidget (scene);
         scene.addChild (interractionLayer);
-
-        source.getActions ().addAction (ActionFactory.createExtendedConnectAction (interractionLayer, new ConnectProvider() {
+        
+        WidgetAction selectAction = ActionFactory.createSelectAction(new SelectProvider() {
+            @Override
+            public boolean isAimingAllowed(Widget widget, Point localLocation, boolean invertSelection) {
+                return true;
+            }
+            @Override
+            public boolean isSelectionAllowed(Widget widget, Point localLocation, boolean invertSelection) {
+                return true;
+            }
+            @Override
+            public void select(Widget widget, Point localLocation, boolean invertSelection) {
+                scene.setFocusedWidget(widget);
+            }
+        });
+        
+        WidgetAction connectAction = ActionFactory.createExtendedConnectAction (interractionLayer, new ConnectProvider() {
             public boolean isSourceWidget (Widget sourceWidget) {
                 return sourceWidget == source;
             }
@@ -73,15 +92,27 @@ public final class DemoTopComponent extends TopComponent {
                 return null;
             }
             public void createConnection (Widget sourceWidget, Widget targetWidget) {
+                Object o = sourceWidget;
             }
-        }));
+        });
         
-        // Don't know whether this a focus issus or not
+        scene.setKeyEventProcessingType(EventProcessingType.FOCUSED_WIDGET_AND_ITS_CHILDREN);
         
-        // pane.setFocusable(true);
+        scene.getActions().addAction(connectAction);
+        scene.getActions().addAction(selectAction);
+        
+        // Commented out for debugging purposes
+        // scene.getActions().addAction(new KeyboardMoveAction());
         
         pane.setViewportView(scene.createView());
     }
+
+    @Override
+    protected void componentActivated() {
+        scene.getView().requestFocusInWindow();
+    }
+    
+    
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -120,5 +151,12 @@ public final class DemoTopComponent extends TopComponent {
     void readProperties(java.util.Properties p) {
         String version = p.getProperty("version");
         // TODO read your settings according to their version
+    }
+    
+    private final class KeyboardMoveAction extends WidgetAction.Adapter {
+        @Override
+        public State keyPressed(Widget widget, WidgetAction.WidgetKeyEvent event) {
+            return State.CONSUMED;
+        }
     }
 }
